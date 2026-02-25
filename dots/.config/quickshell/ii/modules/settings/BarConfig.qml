@@ -2,10 +2,257 @@ import QtQuick
 import QtQuick.Layouts
 import qs.services
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 
 ContentPage {
     forceWidth: true
+    property int layoutRevision: 0
+    property var draftBarLayout: ({})
+
+    readonly property var barWidgetDefinitions: [
+        { key: "leftSidebarButton", icon: "left_panel_open", name: Translation.tr("Left sidebar button") },
+        { key: "activeWindow", icon: "web_asset", name: Translation.tr("Active window") },
+        { key: "resources", icon: "monitoring", name: Translation.tr("Resources") },
+        { key: "media", icon: "music_note", name: Translation.tr("Media") },
+        { key: "workspaces", icon: "workspaces", name: Translation.tr("Workspaces") },
+        { key: "clock", icon: "schedule", name: Translation.tr("Clock") },
+        { key: "utilButtons", icon: "widgets", name: Translation.tr("Utility buttons") },
+        { key: "battery", icon: "battery_android_full", name: Translation.tr("Battery") },
+        { key: "rightSidebarButton", icon: "right_panel_open", name: Translation.tr("Right sidebar button") },
+        { key: "sysTray", icon: "shelf_auto_hide", name: Translation.tr("System tray") },
+        { key: "weather", icon: "cloud", name: Translation.tr("Weather") }
+    ]
+
+    readonly property var sectionDefinitions: [
+        { key: "left", title: Translation.tr("Left") },
+        { key: "centerLeft", title: Translation.tr("Center Left") },
+        { key: "center", title: Translation.tr("Center") },
+        { key: "centerRight", title: Translation.tr("Center Right") },
+        { key: "right", title: Translation.tr("Right") }
+    ]
+
+    readonly property var defaultBarLayout: ({
+            left: ["leftSidebarButton", "activeWindow"],
+            centerLeft: ["resources", "media"],
+            center: ["workspaces"],
+            centerRight: ["clock", "utilButtons", "battery"],
+            right: ["rightSidebarButton", "sysTray", "weather"]
+        })
+
+    function widgetName(key) {
+        for (let i = 0; i < barWidgetDefinitions.length; ++i) {
+            if (barWidgetDefinitions[i].key === key)
+                return barWidgetDefinitions[i].name;
+        }
+        return key;
+    }
+
+    function widgetIcon(key) {
+        for (let i = 0; i < barWidgetDefinitions.length; ++i) {
+            if (barWidgetDefinitions[i].key === key)
+                return barWidgetDefinitions[i].icon;
+        }
+        return "widgets";
+    }
+
+    function listToArray(value) {
+        const result = [];
+        if (Array.isArray(value)) {
+            for (let i = 0; i < value.length; ++i)
+                result.push(value[i]);
+            return result;
+        }
+        if (value !== null && value !== undefined && typeof value.length === "number") {
+            for (let i = 0; i < value.length; ++i)
+                result.push(value[i]);
+        }
+        return result;
+    }
+
+    function listIncludes(values, target) {
+        for (let i = 0; i < values.length; ++i) {
+            if (values[i] === target)
+                return true;
+        }
+        return false;
+    }
+
+    function getLayoutSection(sectionKey) {
+        const configured = Config?.options?.bar?.layout?.[sectionKey];
+        if (configured !== null && configured !== undefined) {
+            const configuredList = listToArray(configured);
+            if (configuredList.length > 0 || (typeof configured.length === "number" && configured.length === 0))
+                return configuredList;
+        }
+        const fallback = defaultBarLayout[sectionKey] ?? [];
+        return listToArray(fallback);
+    }
+
+    function currentLayoutSnapshot() {
+        return {
+            left: getLayoutSection("left"),
+            centerLeft: getLayoutSection("centerLeft"),
+            center: getLayoutSection("center"),
+            centerRight: getLayoutSection("centerRight"),
+            right: getLayoutSection("right")
+        };
+    }
+
+    function initializeDraftLayout() {
+        draftBarLayout = currentLayoutSnapshot();
+        layoutRevision += 1;
+    }
+
+    function resetDraftToDefaults() {
+        draftBarLayout = {
+            left: listToArray(defaultBarLayout.left),
+            centerLeft: listToArray(defaultBarLayout.centerLeft),
+            center: listToArray(defaultBarLayout.center),
+            centerRight: listToArray(defaultBarLayout.centerRight),
+            right: listToArray(defaultBarLayout.right)
+        };
+        layoutRevision += 1;
+    }
+
+    function getDraftSection(sectionKey) {
+        layoutRevision;
+        const section = draftBarLayout?.[sectionKey];
+        return Array.isArray(section) ? section.slice() : [];
+    }
+
+    function setDraftSection(sectionKey, values) {
+        const nextLayout = currentLayoutSnapshot();
+        const existingLayout = draftBarLayout;
+        for (let i = 0; i < sectionDefinitions.length; ++i) {
+            const key = sectionDefinitions[i].key;
+            const existingSection = existingLayout?.[key];
+            if (Array.isArray(existingSection)) {
+                nextLayout[key] = existingSection.slice();
+            }
+        }
+        nextLayout[sectionKey] = Array.isArray(values) ? values.slice() : [];
+        draftBarLayout = nextLayout;
+        layoutRevision += 1;
+    }
+
+    function allAssignedWidgets() {
+        const assigned = [];
+        for (let i = 0; i < sectionDefinitions.length; ++i) {
+            const sectionValues = getDraftSection(sectionDefinitions[i].key);
+            for (let j = 0; j < sectionValues.length; ++j) {
+                assigned.push(sectionValues[j]);
+            }
+        }
+        return assigned;
+    }
+
+    function availableWidgets(sectionKey) {
+        const current = getDraftSection(sectionKey);
+        const assigned = allAssignedWidgets();
+        const result = [];
+        for (let i = 0; i < barWidgetDefinitions.length; ++i) {
+            const item = barWidgetDefinitions[i];
+            if (listIncludes(current, item.key) || !listIncludes(assigned, item.key)) {
+                result.push(item);
+            }
+        }
+        return result;
+    }
+
+    function addWidgetToSection(sectionKey, widgetKey) {
+        const assigned = allAssignedWidgets();
+        if (listIncludes(assigned, widgetKey)) {
+            return;
+        }
+        const section = getDraftSection(sectionKey);
+        section.push(widgetKey);
+        setDraftSection(sectionKey, section);
+    }
+
+    function removeWidgetFromSection(sectionKey, widgetKey) {
+        const section = getDraftSection(sectionKey).filter(key => key !== widgetKey);
+        setDraftSection(sectionKey, section);
+    }
+
+    function moveWidget(sectionKey, fromIndex, toIndex) {
+        const section = getDraftSection(sectionKey);
+        if (fromIndex < 0 || toIndex < 0 || fromIndex >= section.length || toIndex >= section.length || fromIndex === toIndex) {
+            return;
+        }
+        const [moved] = section.splice(fromIndex, 1);
+        section.splice(toIndex, 0, moved);
+        setDraftSection(sectionKey, section);
+    }
+
+    function indexInSection(sectionKey, widgetKey) {
+        const section = getDraftSection(sectionKey);
+        for (let i = 0; i < section.length; ++i) {
+            if (section[i] === widgetKey)
+                return i;
+        }
+        return -1;
+    }
+
+    function moveWidgetByKey(sectionKey, widgetKey, delta) {
+        const currentIndex = indexInSection(sectionKey, widgetKey);
+        if (currentIndex < 0)
+            return;
+        const nextIndex = currentIndex + delta;
+        moveWidget(sectionKey, currentIndex, nextIndex);
+    }
+
+    function applyDraftLayout() {
+        const left = getDraftSection("left");
+        const centerLeft = getDraftSection("centerLeft");
+        const center = getDraftSection("center");
+        const centerRight = getDraftSection("centerRight");
+        const right = getDraftSection("right");
+
+        Config.options.bar.layout.left = left;
+        Config.options.bar.layout.centerLeft = centerLeft;
+        Config.options.bar.layout.center = center;
+        Config.options.bar.layout.centerRight = centerRight;
+        Config.options.bar.layout.right = right;
+
+        Config.setNestedValue("bar.layout.left", left);
+        Config.setNestedValue("bar.layout.centerLeft", centerLeft);
+        Config.setNestedValue("bar.layout.center", center);
+        Config.setNestedValue("bar.layout.centerRight", centerRight);
+        Config.setNestedValue("bar.layout.right", right);
+
+        initializeDraftLayout();
+    }
+
+    function hasDraftChanges() {
+        const current = currentLayoutSnapshot();
+        const draft = {
+            left: getDraftSection("left"),
+            centerLeft: getDraftSection("centerLeft"),
+            center: getDraftSection("center"),
+            centerRight: getDraftSection("centerRight"),
+            right: getDraftSection("right")
+        };
+        return JSON.stringify(current) !== JSON.stringify(draft);
+    }
+
+    function sectionModel(sectionKey) {
+        return getDraftSection(sectionKey);
+    }
+
+    function sectionAvailableModel(sectionKey) {
+        const current = getDraftSection(sectionKey);
+        const available = availableWidgets(sectionKey);
+        const result = [];
+        for (let i = 0; i < available.length; ++i) {
+            if (!listIncludes(current, available[i].key)) {
+                result.push(available[i]);
+            }
+        }
+        return result;
+    }
+
+    Component.onCompleted: initializeDraftLayout()
 
     ContentSection {
         icon: "notifications"
@@ -160,6 +407,220 @@ ContentPage {
             checked: Config.options.tray.monochromeIcons
             onCheckedChanged: {
                 Config.options.tray.monochromeIcons = checked;
+            }
+        }
+    }
+
+    ContentSection {
+        icon: "dashboard_customize"
+        title: Translation.tr("Layout")
+
+        Repeater {
+            model: sectionDefinitions
+
+            delegate: ContentSubsection {
+                required property var modelData
+                readonly property string sectionId: modelData.key
+                property bool addPickerOpen: false
+
+                title: modelData.title
+                Layout.fillWidth: true
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        color: Appearance.colors.colSubtext
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        text: Translation.tr("Drag to reorder. Widgets are unique across all sections.")
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: sectionColumn.implicitHeight + 10
+                        radius: Appearance.rounding.small
+                        color: Appearance.colors.colLayer2
+                        border.width: 1
+                        border.color: Appearance.colors.colOutlineVariant
+
+                        Column {
+                            id: sectionColumn
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                top: parent.top
+                                margins: 5
+                            }
+                            spacing: 4
+
+                            Repeater {
+                                model: sectionModel(sectionId)
+
+                                delegate: Rectangle {
+                                    id: widgetItem
+                                    required property string modelData
+                                    readonly property string widgetKey: modelData
+                                    readonly property string sectionKey: sectionId
+
+                                    width: sectionColumn.width
+                                    implicitHeight: 36
+                                    radius: Appearance.rounding.small
+                                    color: Appearance.colors.colLayer1
+                                    border.width: 1
+                                    border.color: Appearance.colors.colOutlineVariant
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 6
+                                        spacing: 8
+
+                                        MaterialSymbol {
+                                            text: widgetIcon(widgetItem.widgetKey)
+                                            iconSize: Appearance.font.pixelSize.normal
+                                            color: Appearance.colors.colOnLayer1
+                                        }
+
+                                        StyledText {
+                                            Layout.fillWidth: true
+                                            text: widgetName(widgetItem.widgetKey)
+                                            color: Appearance.colors.colOnLayer1
+                                            font.pixelSize: Appearance.font.pixelSize.normal
+                                            elide: Text.ElideRight
+                                        }
+
+                                        MaterialSymbol {
+                                            text: "widgets"
+                                            iconSize: Appearance.font.pixelSize.small
+                                            color: Appearance.colors.colSubtext
+                                        }
+
+                                        RippleButton {
+                                            implicitWidth: 28
+                                            implicitHeight: 28
+                                            buttonRadius: Appearance.rounding.full
+                                            enabled: indexInSection(widgetItem.sectionKey, widgetItem.widgetKey) > 0
+                                            onClicked: moveWidgetByKey(widgetItem.sectionKey, widgetItem.widgetKey, -1)
+
+                                            contentItem: MaterialSymbol {
+                                                anchors.centerIn: parent
+                                                text: "arrow_upward"
+                                                iconSize: Appearance.font.pixelSize.normal
+                                                color: Appearance.colors.colOnLayer1
+                                            }
+                                        }
+
+                                        RippleButton {
+                                            implicitWidth: 28
+                                            implicitHeight: 28
+                                            buttonRadius: Appearance.rounding.full
+                                            enabled: {
+                                                const idx = indexInSection(widgetItem.sectionKey, widgetItem.widgetKey);
+                                                const len = sectionModel(sectionId).length;
+                                                return idx >= 0 && idx < len - 1;
+                                            }
+                                            onClicked: moveWidgetByKey(widgetItem.sectionKey, widgetItem.widgetKey, 1)
+
+                                            contentItem: MaterialSymbol {
+                                                anchors.centerIn: parent
+                                                text: "arrow_downward"
+                                                iconSize: Appearance.font.pixelSize.normal
+                                                color: Appearance.colors.colOnLayer1
+                                            }
+                                        }
+
+                                        RippleButton {
+                                            implicitWidth: 28
+                                            implicitHeight: 28
+                                            buttonRadius: Appearance.rounding.full
+                                            colBackground: ColorUtils.transparentize(Appearance.colors.colErrorContainer, 1)
+                                            colBackgroundHover: Appearance.colors.colErrorContainerHover
+                                            colRipple: Appearance.colors.colErrorContainerActive
+                                            onClicked: removeWidgetFromSection(widgetItem.sectionKey, widgetItem.widgetKey)
+
+                                            contentItem: MaterialSymbol {
+                                                anchors.centerIn: parent
+                                                text: "close"
+                                                iconSize: Appearance.font.pixelSize.normal
+                                                color: Appearance.m3colors.m3onErrorContainer
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            StyledText {
+                                visible: sectionModel(sectionId).length === 0
+                                width: sectionColumn.width
+                                text: Translation.tr("No widgets in this section")
+                                color: Appearance.colors.colSubtext
+                                font.pixelSize: Appearance.font.pixelSize.small
+                            }
+                        }
+                    }
+
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        RippleButtonWithIcon {
+                            materialIcon: "add"
+                            mainText: Translation.tr("Add widget")
+                            onClicked: addPickerOpen = !addPickerOpen
+                        }
+
+                        StyledComboBox {
+                            id: addWidgetCombo
+                            visible: addPickerOpen
+                            implicitWidth: 260
+                            model: sectionAvailableModel(sectionId)
+                            textRole: "name"
+                            buttonIcon: currentIndex >= 0 && currentIndex < model.length ? model[currentIndex].icon : "widgets"
+                            currentIndex: model.length > 0 ? 0 : -1
+                        }
+
+                        RippleButtonWithIcon {
+                            visible: addPickerOpen
+                            materialIcon: "check"
+                            mainText: Translation.tr("Add")
+                            enabled: addWidgetCombo.currentIndex >= 0 && addWidgetCombo.currentIndex < addWidgetCombo.model.length
+                            onClicked: {
+                                const picked = addWidgetCombo.model[addWidgetCombo.currentIndex];
+                                if (!picked)
+                                    return;
+                                addWidgetToSection(sectionId, picked.key);
+                                addPickerOpen = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ConfigRow {
+            Layout.topMargin: 6
+            uniform: true
+
+            RippleButtonWithIcon {
+                materialIcon: "restore"
+                mainText: Translation.tr("Reset to defaults")
+                onClicked: resetDraftToDefaults()
+            }
+
+            RippleButtonWithIcon {
+                materialIcon: "restart_alt"
+                mainText: Translation.tr("Reset draft")
+                onClicked: initializeDraftLayout()
+            }
+
+            RippleButtonWithIcon {
+                materialIcon: "done_all"
+                mainText: Translation.tr("Apply")
+                enabled: hasDraftChanges()
+                onClicked: applyDraftLayout()
             }
         }
     }

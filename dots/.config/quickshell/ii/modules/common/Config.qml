@@ -241,6 +241,13 @@ Singleton {
                 property bool showBackground: true
                 property bool verbose: true
                 property bool vertical: false
+                property JsonObject layout: JsonObject {
+                    property list<string> left: ["leftSidebarButton", "activeWindow"]
+                    property list<string> centerLeft: ["resources", "media"]
+                    property list<string> center: ["workspaces"]
+                    property list<string> centerRight: ["clock", "utilButtons", "battery"]
+                    property list<string> right: ["rightSidebarButton", "sysTray", "weather"]
+                }
                 property JsonObject resources: JsonObject {
                     property bool alwaysShowSwap: true
                     property bool alwaysShowCpu: true
