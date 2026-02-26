@@ -783,7 +783,7 @@ ContentPage {
                         Layout.fillWidth: true
                         color: Appearance.colors.colSubtext
                         font.pixelSize: Appearance.font.pixelSize.small
-                        text: Translation.tr("Drag to reorder. Widgets are unique across all sections.")
+                        text: Translation.tr("Use arrow buttons to reorder. Widgets are unique across all sections.")
                         wrapMode: Text.WordWrap
                     }
 
@@ -816,13 +816,14 @@ ContentPage {
                                     property bool expanded: false
 
                                     width: sectionColumn.width
-                                    implicitHeight: expanded ? (headerRow.implicitHeight + expandedLayout.implicitHeight + 8) : (headerRow.implicitHeight + 8)
+                                    implicitHeight: widgetContentLayout.implicitHeight + 8
                                     radius: Appearance.rounding.small
                                     color: Appearance.colors.colLayer1
                                     border.width: 1
                                     border.color: Appearance.colors.colOutlineVariant
 
                                     ColumnLayout {
+                                        id: widgetContentLayout
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 6

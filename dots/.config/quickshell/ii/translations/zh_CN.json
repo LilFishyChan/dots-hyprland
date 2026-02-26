@@ -740,7 +740,7 @@
   "Reset draft": "重置草稿",
   "No widgets in this section": "该部分没有小组件",
   "System updates (Arch only)": "系统更新（仅限 Arch）",
-  "Drag to reorder. Widgets are unique across all sections.": "拖动以重新排序。小组件在所有部分中唯一。",
+  "Use arrow buttons to reorder. Widgets are unique across all sections.": "使用箭头按钮排序。小组件在所有部分中唯一。",
   "System tray": "系统托盘",
   "Check interval (mins)": "检查间隔（分钟）",
   "Right to left": "从右到左",
