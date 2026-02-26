@@ -50,31 +50,18 @@ Item { // Bar content region
             weather: { align: "auto", fillWidth: "auto" }
         })
 
-    function previewLayoutSection(sectionName) {
-        return listToArray(Config?.barLayoutPreview?.[sectionName]);
-    }
-
     function configuredLayoutSection(sectionName) {
         const configured = Config?.options?.bar?.layout?.[sectionName];
         return listToArray(configured);
     }
 
     function effectiveLayoutSection(sectionName) {
-        if (Config?.barLayoutPreviewActive) {
-            const previewSection = previewLayoutSection(sectionName);
-            return previewSection.length > 0 || Config?.barLayoutPreview?.[sectionName] ? previewSection : listToArray(defaultLayout[sectionName] ?? []);
-        }
         const configuredSection = configuredLayoutSection(sectionName);
         return configuredSection.length > 0 || Config?.options?.bar?.layout?.[sectionName] ? configuredSection : listToArray(defaultLayout[sectionName] ?? []);
     }
 
     function effectiveSizingValue(path, fallbackValue) {
         const [section, key] = path;
-        if (Config?.barLayoutPreviewActive) {
-            const previewValue = Config?.barLayoutSizingPreview?.[section]?.[key];
-            if (previewValue !== undefined && previewValue !== null)
-                return previewValue;
-        }
         const configuredValue = Config?.options?.bar?.layoutSizing?.[section]?.[key];
         if (configuredValue !== undefined && configuredValue !== null)
             return configuredValue;
@@ -82,11 +69,6 @@ Item { // Bar content region
     }
 
     function effectiveWidgetOptionValue(widgetKey, optionKey, fallbackValue) {
-        if (Config?.barLayoutPreviewActive) {
-            const previewValue = Config?.barWidgetOptionsPreview?.[widgetKey]?.[optionKey];
-            if (previewValue !== undefined && previewValue !== null)
-                return previewValue;
-        }
         const configuredValue = Config?.options?.bar?.layoutWidgetOptions?.[widgetKey]?.[optionKey];
         if (configuredValue !== undefined && configuredValue !== null)
             return configuredValue;
@@ -430,17 +412,8 @@ Item { // Bar content region
         }
         color: Config.options.bar.showBackground ? Appearance.colors.colLayer0 : "transparent"
         radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
-        border.width: Config.barLayoutPreviewActive ? 2 : (Config.options.bar.cornerStyle === 1 ? 1 : 0)
+        border.width: Config.options.bar.cornerStyle === 1 ? 1 : 0
         border.color: Appearance.colors.colLayer0Border
-    }
-
-    Rectangle {
-        anchors.fill: barBackground
-        visible: Config.barLayoutPreviewActive
-        color: "transparent"
-        radius: barBackground.radius
-        border.width: 1
-        border.color: Appearance.colors.colPrimary
     }
 
     FocusedScrollMouseArea { // Left side | scroll to change brightness

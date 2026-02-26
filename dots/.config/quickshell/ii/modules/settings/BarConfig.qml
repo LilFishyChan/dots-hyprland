@@ -8,6 +8,7 @@ import qs.modules.common.widgets
 ContentPage {
     forceWidth: true
     property int layoutRevision: 0
+    property bool realtimeApplyEnabled: false
     property var draftBarLayout: ({})
     property var draftBarLayoutSizing: ({})
     property var draftBarWidgetOptions: ({})
@@ -180,54 +181,16 @@ ContentPage {
         };
     }
 
-    function syncBarPreview() {
-        Config.barLayoutPreview = {
-            left: getDraftSection("left"),
-            centerLeft: getDraftSection("centerLeft"),
-            center: getDraftSection("center"),
-            centerRight: getDraftSection("centerRight"),
-            right: getDraftSection("right")
-        };
-        Config.barLayoutSizingPreview = {
-            root: {
-                middleSpacing: getDraftGlobalSpacing("middleSpacing"),
-                rightSectionSpacing: getDraftGlobalSpacing("rightSectionSpacing")
-            },
-            left: getDraftSizingSection("left"),
-            centerLeft: getDraftSizingSection("centerLeft"),
-            center: getDraftSizingSection("center"),
-            centerRight: getDraftSizingSection("centerRight"),
-            right: getDraftSizingSection("right")
-        };
-        Config.barWidgetOptionsPreview = {
-            leftSidebarButton: getDraftWidgetOptions("leftSidebarButton"),
-            activeWindow: getDraftWidgetOptions("activeWindow"),
-            resources: getDraftWidgetOptions("resources"),
-            media: getDraftWidgetOptions("media"),
-            workspaces: getDraftWidgetOptions("workspaces"),
-            clock: getDraftWidgetOptions("clock"),
-            utilButtons: getDraftWidgetOptions("utilButtons"),
-            battery: getDraftWidgetOptions("battery"),
-            rightSidebarButton: getDraftWidgetOptions("rightSidebarButton"),
-            sysTray: getDraftWidgetOptions("sysTray"),
-            weather: getDraftWidgetOptions("weather")
-        };
-        Config.barLayoutPreviewActive = hasDraftChanges();
-    }
-
-    function clearBarPreview() {
-        Config.barLayoutPreviewActive = false;
-        Config.barLayoutPreview = ({})
-        Config.barLayoutSizingPreview = ({})
-        Config.barWidgetOptionsPreview = ({})
-    }
-
     function initializeDraftLayout() {
         draftBarLayout = currentLayoutSnapshot();
         draftBarLayoutSizing = currentLayoutSizingSnapshot();
         draftBarWidgetOptions = currentWidgetOptionsSnapshot();
         layoutRevision += 1;
-        syncBarPreview();
+    }
+
+    function maybeApplyRealtime() {
+        if (realtimeApplyEnabled)
+            commitDraftLayoutToConfig();
     }
 
     function resetDraftToDefaults() {
@@ -283,7 +246,6 @@ ContentPage {
             weather: { align: defaultBarWidgetOptions.weather.align, fillWidth: defaultBarWidgetOptions.weather.fillWidth }
         };
         layoutRevision += 1;
-        syncBarPreview();
     }
 
     function getDraftSection(sectionKey) {
@@ -305,7 +267,7 @@ ContentPage {
         nextLayout[sectionKey] = Array.isArray(values) ? values.slice() : [];
         draftBarLayout = nextLayout;
         layoutRevision += 1;
-        syncBarPreview();
+        maybeApplyRealtime();
     }
 
     function getDraftSizingSection(sectionKey) {
@@ -338,7 +300,7 @@ ContentPage {
         };
         draftBarLayoutSizing = nextSizing;
         layoutRevision += 1;
-        syncBarPreview();
+        maybeApplyRealtime();
     }
 
     function getDraftGlobalSpacing(key) {
@@ -363,7 +325,7 @@ ContentPage {
         nextSizing.root[key] = value;
         draftBarLayoutSizing = nextSizing;
         layoutRevision += 1;
-        syncBarPreview();
+        maybeApplyRealtime();
     }
 
     function getDraftWidgetOptions(widgetKey) {
@@ -396,7 +358,7 @@ ContentPage {
         };
         draftBarWidgetOptions = nextOptions;
         layoutRevision += 1;
-        syncBarPreview();
+        maybeApplyRealtime();
     }
 
     function allAssignedWidgets() {
@@ -465,7 +427,7 @@ ContentPage {
         moveWidget(sectionKey, currentIndex, nextIndex);
     }
 
-    function applyDraftLayout() {
+    function commitDraftLayoutToConfig() {
         const left = getDraftSection("left");
         const centerLeft = getDraftSection("centerLeft");
         const center = getDraftSection("center");
@@ -535,7 +497,10 @@ ContentPage {
             Config.setNestedValue(`bar.layoutWidgetOptions.${key}.align`, options.align);
             Config.setNestedValue(`bar.layoutWidgetOptions.${key}.fillWidth`, options.fillWidth);
         }
+    }
 
+    function applyDraftLayout() {
+        commitDraftLayoutToConfig();
         initializeDraftLayout();
     }
 
@@ -596,12 +561,6 @@ ContentPage {
     }
 
     Component.onCompleted: initializeDraftLayout()
-    onVisibleChanged: {
-        if (!visible) {
-            clearBarPreview();
-        }
-    }
-    Component.onDestruction: clearBarPreview()
 
     ContentSection {
         icon: "notifications"
@@ -762,7 +721,7 @@ ContentPage {
 
     ContentSection {
         icon: "dashboard_customize"
-        title: Translation.tr("Layout")
+        title: ""
 
         Repeater {
             model: sectionDefinitions
@@ -772,12 +731,20 @@ ContentPage {
                 readonly property string sectionId: modelData.key
                 property bool addPickerOpen: false
 
-                title: modelData.title
+                title: ""
                 Layout.fillWidth: true
 
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 6
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: modelData.title
+                        color: Appearance.colors.colOnLayer0
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        font.weight: Font.DemiBold
+                    }
 
                     StyledText {
                         Layout.fillWidth: true
@@ -1013,7 +980,7 @@ ContentPage {
                     }
 
                     ContentSubsection {
-                        title: Translation.tr("Section layout")
+                        title: ""
                         Layout.fillWidth: true
 
                         ConfigRow {
@@ -1090,13 +1057,45 @@ ContentPage {
             }
         }
 
-        ContentSubsection {
-            title: Translation.tr("Global spacing")
+        ConfigSwitch {
+            buttonIcon: "bolt"
+            text: Translation.tr("Realtime apply")
+            checked: realtimeApplyEnabled
+            onCheckedChanged: {
+                realtimeApplyEnabled = checked;
+                if (checked)
+                    commitDraftLayoutToConfig();
+            }
+        }
 
-            ConfigRow {
+        ContentSubsection {
+            title: "Layout"
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Translation.tr("Global spacing")
+                    color: Appearance.colors.colOnLayer0
+                    font.pixelSize: Appearance.font.pixelSize.normal
+                    font.weight: Font.DemiBold
+                }
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Translation.tr("Adjust spacing between center blocks and right-side widgets.")
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    wrapMode: Text.WordWrap
+                }
+
+                ConfigRow {
+                    uniform: true
                 ConfigSpinBox {
                     icon: "space_bar"
-                    text: Translation.tr("Middle spacing")
+                    text: Translation.tr("Center block spacing")
                     value: getDraftGlobalSpacing("middleSpacing")
                     from: 0
                     to: 24
@@ -1109,7 +1108,7 @@ ContentPage {
                 }
                 ConfigSpinBox {
                     icon: "space_dashboard"
-                    text: Translation.tr("Right section spacing")
+                    text: Translation.tr("Right widget spacing")
                     value: getDraftGlobalSpacing("rightSectionSpacing")
                     from: 0
                     to: 24
@@ -1119,6 +1118,7 @@ ContentPage {
                             return;
                         setDraftGlobalSpacing("rightSectionSpacing", value);
                     }
+                }
                 }
             }
         }

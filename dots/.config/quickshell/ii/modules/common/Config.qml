@@ -12,10 +12,6 @@ Singleton {
     property bool ready: false
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
-    property bool barLayoutPreviewActive: false
-    property var barLayoutPreview: ({})
-    property var barLayoutSizingPreview: ({})
-    property var barWidgetOptionsPreview: ({})
 
     function setNestedValue(nestedKey, value) {
         let keys = nestedKey.split(".");
