@@ -12,6 +12,10 @@ Singleton {
     property bool ready: false
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
+    property bool barLayoutPreviewActive: false
+    property var barLayoutPreview: ({})
+    property var barLayoutSizingPreview: ({})
+    property var barWidgetOptionsPreview: ({})
 
     function setNestedValue(nestedKey, value) {
         let keys = nestedKey.split(".");
@@ -246,7 +250,82 @@ Singleton {
                     property list<string> centerLeft: ["resources", "media"]
                     property list<string> center: ["workspaces"]
                     property list<string> centerRight: ["clock", "utilButtons", "battery"]
-                    property list<string> right: ["rightSidebarButton", "sysTray", "weather"]
+                    property list<string> right: ["weather", "sysTray", "rightSidebarButton"]
+                }
+                property JsonObject layoutSizing: JsonObject {
+                    property int middleSpacing: 4
+                    property int rightSectionSpacing: 5
+                    property JsonObject left: JsonObject {
+                        property string mode: "adaptive" // "adaptive" | "fixed"
+                        property int fixedWidth: 360
+                        property string align: "left" // "left" | "center" | "right"
+                    }
+                    property JsonObject centerLeft: JsonObject {
+                        property string mode: "adaptive" // "adaptive" | "fixed"
+                        property int fixedWidth: 320
+                        property string align: "center" // "left" | "center" | "right"
+                    }
+                    property JsonObject center: JsonObject {
+                        property string mode: "adaptive" // "adaptive" | "fixed"
+                        property int fixedWidth: 320
+                        property string align: "center" // "left" | "center" | "right"
+                    }
+                    property JsonObject centerRight: JsonObject {
+                        property string mode: "adaptive" // "adaptive" | "fixed"
+                        property int fixedWidth: 320
+                        property string align: "center" // "left" | "center" | "right"
+                    }
+                    property JsonObject right: JsonObject {
+                        property string mode: "adaptive" // "adaptive" | "fixed"
+                        property int fixedWidth: 360
+                        property string align: "right" // "left" | "center" | "right"
+                    }
+                }
+                property JsonObject layoutWidgetOptions: JsonObject {
+                    property JsonObject leftSidebarButton: JsonObject {
+                        property string align: "auto" // "auto" | "left" | "center" | "right"
+                        property string fillWidth: "auto" // "auto" | "on" | "off"
+                    }
+                    property JsonObject activeWindow: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject resources: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject media: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject workspaces: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject clock: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject utilButtons: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject battery: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject rightSidebarButton: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject sysTray: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
+                    property JsonObject weather: JsonObject {
+                        property string align: "auto"
+                        property string fillWidth: "auto"
+                    }
                 }
                 property JsonObject resources: JsonObject {
                     property bool alwaysShowSwap: true

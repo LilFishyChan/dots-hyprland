@@ -9,6 +9,8 @@ ContentPage {
     forceWidth: true
     property int layoutRevision: 0
     property var draftBarLayout: ({})
+    property var draftBarLayoutSizing: ({})
+    property var draftBarWidgetOptions: ({})
 
     readonly property var barWidgetDefinitions: [
         { key: "leftSidebarButton", icon: "left_panel_open", name: Translation.tr("Left sidebar button") },
@@ -37,7 +39,33 @@ ContentPage {
             centerLeft: ["resources", "media"],
             center: ["workspaces"],
             centerRight: ["clock", "utilButtons", "battery"],
-            right: ["rightSidebarButton", "sysTray", "weather"]
+            right: ["weather", "sysTray", "rightSidebarButton"]
+        })
+
+    readonly property var defaultBarLayoutSizing: ({
+            root: {
+                middleSpacing: 4,
+                rightSectionSpacing: 5
+            },
+            left: { mode: "adaptive", fixedWidth: 360, align: "left" },
+            centerLeft: { mode: "adaptive", fixedWidth: 320, align: "center" },
+            center: { mode: "adaptive", fixedWidth: 320, align: "center" },
+            centerRight: { mode: "adaptive", fixedWidth: 320, align: "center" },
+            right: { mode: "adaptive", fixedWidth: 360, align: "right" }
+        })
+
+    readonly property var defaultBarWidgetOptions: ({
+            leftSidebarButton: { align: "auto", fillWidth: "auto" },
+            activeWindow: { align: "auto", fillWidth: "auto" },
+            resources: { align: "auto", fillWidth: "auto" },
+            media: { align: "auto", fillWidth: "auto" },
+            workspaces: { align: "auto", fillWidth: "auto" },
+            clock: { align: "auto", fillWidth: "auto" },
+            utilButtons: { align: "auto", fillWidth: "auto" },
+            battery: { align: "auto", fillWidth: "auto" },
+            rightSidebarButton: { align: "auto", fillWidth: "auto" },
+            sysTray: { align: "auto", fillWidth: "auto" },
+            weather: { align: "auto", fillWidth: "auto" }
         })
 
     function widgetName(key) {
@@ -99,9 +127,107 @@ ContentPage {
         };
     }
 
+    function getLayoutSizingSection(sectionKey) {
+        const source = Config?.options?.bar?.layoutSizing;
+        if (sectionKey === "root") {
+            return {
+                middleSpacing: source?.middleSpacing ?? defaultBarLayoutSizing.root.middleSpacing,
+                rightSectionSpacing: source?.rightSectionSpacing ?? defaultBarLayoutSizing.root.rightSectionSpacing
+            };
+        }
+        const current = source?.[sectionKey];
+        const defaults = defaultBarLayoutSizing[sectionKey];
+        return {
+            mode: current?.mode ?? defaults.mode,
+            fixedWidth: current?.fixedWidth ?? defaults.fixedWidth,
+            align: current?.align ?? defaults.align
+        };
+    }
+
+    function currentLayoutSizingSnapshot() {
+        return {
+            root: getLayoutSizingSection("root"),
+            left: getLayoutSizingSection("left"),
+            centerLeft: getLayoutSizingSection("centerLeft"),
+            center: getLayoutSizingSection("center"),
+            centerRight: getLayoutSizingSection("centerRight"),
+            right: getLayoutSizingSection("right")
+        };
+    }
+
+    function getWidgetOptionSection(widgetKey) {
+        const current = Config?.options?.bar?.layoutWidgetOptions?.[widgetKey];
+        const defaults = defaultBarWidgetOptions[widgetKey] ?? { align: "auto", fillWidth: "auto" };
+        return {
+            align: current?.align ?? defaults.align,
+            fillWidth: current?.fillWidth ?? defaults.fillWidth
+        };
+    }
+
+    function currentWidgetOptionsSnapshot() {
+        return {
+            leftSidebarButton: getWidgetOptionSection("leftSidebarButton"),
+            activeWindow: getWidgetOptionSection("activeWindow"),
+            resources: getWidgetOptionSection("resources"),
+            media: getWidgetOptionSection("media"),
+            workspaces: getWidgetOptionSection("workspaces"),
+            clock: getWidgetOptionSection("clock"),
+            utilButtons: getWidgetOptionSection("utilButtons"),
+            battery: getWidgetOptionSection("battery"),
+            rightSidebarButton: getWidgetOptionSection("rightSidebarButton"),
+            sysTray: getWidgetOptionSection("sysTray"),
+            weather: getWidgetOptionSection("weather")
+        };
+    }
+
+    function syncBarPreview() {
+        Config.barLayoutPreview = {
+            left: getDraftSection("left"),
+            centerLeft: getDraftSection("centerLeft"),
+            center: getDraftSection("center"),
+            centerRight: getDraftSection("centerRight"),
+            right: getDraftSection("right")
+        };
+        Config.barLayoutSizingPreview = {
+            root: {
+                middleSpacing: getDraftGlobalSpacing("middleSpacing"),
+                rightSectionSpacing: getDraftGlobalSpacing("rightSectionSpacing")
+            },
+            left: getDraftSizingSection("left"),
+            centerLeft: getDraftSizingSection("centerLeft"),
+            center: getDraftSizingSection("center"),
+            centerRight: getDraftSizingSection("centerRight"),
+            right: getDraftSizingSection("right")
+        };
+        Config.barWidgetOptionsPreview = {
+            leftSidebarButton: getDraftWidgetOptions("leftSidebarButton"),
+            activeWindow: getDraftWidgetOptions("activeWindow"),
+            resources: getDraftWidgetOptions("resources"),
+            media: getDraftWidgetOptions("media"),
+            workspaces: getDraftWidgetOptions("workspaces"),
+            clock: getDraftWidgetOptions("clock"),
+            utilButtons: getDraftWidgetOptions("utilButtons"),
+            battery: getDraftWidgetOptions("battery"),
+            rightSidebarButton: getDraftWidgetOptions("rightSidebarButton"),
+            sysTray: getDraftWidgetOptions("sysTray"),
+            weather: getDraftWidgetOptions("weather")
+        };
+        Config.barLayoutPreviewActive = hasDraftChanges();
+    }
+
+    function clearBarPreview() {
+        Config.barLayoutPreviewActive = false;
+        Config.barLayoutPreview = ({})
+        Config.barLayoutSizingPreview = ({})
+        Config.barWidgetOptionsPreview = ({})
+    }
+
     function initializeDraftLayout() {
         draftBarLayout = currentLayoutSnapshot();
+        draftBarLayoutSizing = currentLayoutSizingSnapshot();
+        draftBarWidgetOptions = currentWidgetOptionsSnapshot();
         layoutRevision += 1;
+        syncBarPreview();
     }
 
     function resetDraftToDefaults() {
@@ -112,7 +238,52 @@ ContentPage {
             centerRight: listToArray(defaultBarLayout.centerRight),
             right: listToArray(defaultBarLayout.right)
         };
+        draftBarLayoutSizing = {
+            root: {
+                middleSpacing: defaultBarLayoutSizing.root.middleSpacing,
+                rightSectionSpacing: defaultBarLayoutSizing.root.rightSectionSpacing
+            },
+            left: {
+                mode: defaultBarLayoutSizing.left.mode,
+                fixedWidth: defaultBarLayoutSizing.left.fixedWidth,
+                align: defaultBarLayoutSizing.left.align
+            },
+            centerLeft: {
+                mode: defaultBarLayoutSizing.centerLeft.mode,
+                fixedWidth: defaultBarLayoutSizing.centerLeft.fixedWidth,
+                align: defaultBarLayoutSizing.centerLeft.align
+            },
+            center: {
+                mode: defaultBarLayoutSizing.center.mode,
+                fixedWidth: defaultBarLayoutSizing.center.fixedWidth,
+                align: defaultBarLayoutSizing.center.align
+            },
+            centerRight: {
+                mode: defaultBarLayoutSizing.centerRight.mode,
+                fixedWidth: defaultBarLayoutSizing.centerRight.fixedWidth,
+                align: defaultBarLayoutSizing.centerRight.align
+            },
+            right: {
+                mode: defaultBarLayoutSizing.right.mode,
+                fixedWidth: defaultBarLayoutSizing.right.fixedWidth,
+                align: defaultBarLayoutSizing.right.align
+            }
+        };
+        draftBarWidgetOptions = {
+            leftSidebarButton: { align: defaultBarWidgetOptions.leftSidebarButton.align, fillWidth: defaultBarWidgetOptions.leftSidebarButton.fillWidth },
+            activeWindow: { align: defaultBarWidgetOptions.activeWindow.align, fillWidth: defaultBarWidgetOptions.activeWindow.fillWidth },
+            resources: { align: defaultBarWidgetOptions.resources.align, fillWidth: defaultBarWidgetOptions.resources.fillWidth },
+            media: { align: defaultBarWidgetOptions.media.align, fillWidth: defaultBarWidgetOptions.media.fillWidth },
+            workspaces: { align: defaultBarWidgetOptions.workspaces.align, fillWidth: defaultBarWidgetOptions.workspaces.fillWidth },
+            clock: { align: defaultBarWidgetOptions.clock.align, fillWidth: defaultBarWidgetOptions.clock.fillWidth },
+            utilButtons: { align: defaultBarWidgetOptions.utilButtons.align, fillWidth: defaultBarWidgetOptions.utilButtons.fillWidth },
+            battery: { align: defaultBarWidgetOptions.battery.align, fillWidth: defaultBarWidgetOptions.battery.fillWidth },
+            rightSidebarButton: { align: defaultBarWidgetOptions.rightSidebarButton.align, fillWidth: defaultBarWidgetOptions.rightSidebarButton.fillWidth },
+            sysTray: { align: defaultBarWidgetOptions.sysTray.align, fillWidth: defaultBarWidgetOptions.sysTray.fillWidth },
+            weather: { align: defaultBarWidgetOptions.weather.align, fillWidth: defaultBarWidgetOptions.weather.fillWidth }
+        };
         layoutRevision += 1;
+        syncBarPreview();
     }
 
     function getDraftSection(sectionKey) {
@@ -134,6 +305,98 @@ ContentPage {
         nextLayout[sectionKey] = Array.isArray(values) ? values.slice() : [];
         draftBarLayout = nextLayout;
         layoutRevision += 1;
+        syncBarPreview();
+    }
+
+    function getDraftSizingSection(sectionKey) {
+        layoutRevision;
+        const section = draftBarLayoutSizing?.[sectionKey];
+        const defaults = defaultBarLayoutSizing[sectionKey];
+        return {
+            mode: section?.mode ?? defaults.mode,
+            fixedWidth: section?.fixedWidth ?? defaults.fixedWidth,
+            align: section?.align ?? defaults.align
+        };
+    }
+
+    function setDraftSizingSection(sectionKey, values) {
+        const nextSizing = {
+            root: {
+                middleSpacing: getDraftGlobalSpacing("middleSpacing"),
+                rightSectionSpacing: getDraftGlobalSpacing("rightSectionSpacing")
+            },
+            left: getDraftSizingSection("left"),
+            centerLeft: getDraftSizingSection("centerLeft"),
+            center: getDraftSizingSection("center"),
+            centerRight: getDraftSizingSection("centerRight"),
+            right: getDraftSizingSection("right")
+        };
+        nextSizing[sectionKey] = {
+            mode: values?.mode ?? nextSizing[sectionKey].mode,
+            fixedWidth: values?.fixedWidth ?? nextSizing[sectionKey].fixedWidth,
+            align: values?.align ?? nextSizing[sectionKey].align
+        };
+        draftBarLayoutSizing = nextSizing;
+        layoutRevision += 1;
+        syncBarPreview();
+    }
+
+    function getDraftGlobalSpacing(key) {
+        layoutRevision;
+        const root = draftBarLayoutSizing?.root;
+        const defaults = defaultBarLayoutSizing.root;
+        return root?.[key] ?? defaults[key];
+    }
+
+    function setDraftGlobalSpacing(key, value) {
+        const nextSizing = {
+            root: {
+                middleSpacing: getDraftGlobalSpacing("middleSpacing"),
+                rightSectionSpacing: getDraftGlobalSpacing("rightSectionSpacing")
+            },
+            left: getDraftSizingSection("left"),
+            centerLeft: getDraftSizingSection("centerLeft"),
+            center: getDraftSizingSection("center"),
+            centerRight: getDraftSizingSection("centerRight"),
+            right: getDraftSizingSection("right")
+        };
+        nextSizing.root[key] = value;
+        draftBarLayoutSizing = nextSizing;
+        layoutRevision += 1;
+        syncBarPreview();
+    }
+
+    function getDraftWidgetOptions(widgetKey) {
+        layoutRevision;
+        const section = draftBarWidgetOptions?.[widgetKey];
+        const defaults = defaultBarWidgetOptions[widgetKey] ?? { align: "auto", fillWidth: "auto" };
+        return {
+            align: section?.align ?? defaults.align,
+            fillWidth: section?.fillWidth ?? defaults.fillWidth
+        };
+    }
+
+    function setDraftWidgetOptions(widgetKey, values) {
+        const nextOptions = {
+            leftSidebarButton: getDraftWidgetOptions("leftSidebarButton"),
+            activeWindow: getDraftWidgetOptions("activeWindow"),
+            resources: getDraftWidgetOptions("resources"),
+            media: getDraftWidgetOptions("media"),
+            workspaces: getDraftWidgetOptions("workspaces"),
+            clock: getDraftWidgetOptions("clock"),
+            utilButtons: getDraftWidgetOptions("utilButtons"),
+            battery: getDraftWidgetOptions("battery"),
+            rightSidebarButton: getDraftWidgetOptions("rightSidebarButton"),
+            sysTray: getDraftWidgetOptions("sysTray"),
+            weather: getDraftWidgetOptions("weather")
+        };
+        nextOptions[widgetKey] = {
+            align: values?.align ?? nextOptions[widgetKey].align,
+            fillWidth: values?.fillWidth ?? nextOptions[widgetKey].fillWidth
+        };
+        draftBarWidgetOptions = nextOptions;
+        layoutRevision += 1;
+        syncBarPreview();
     }
 
     function allAssignedWidgets() {
@@ -221,6 +484,58 @@ ContentPage {
         Config.setNestedValue("bar.layout.centerRight", centerRight);
         Config.setNestedValue("bar.layout.right", right);
 
+        const leftSizing = getDraftSizingSection("left");
+        const centerLeftSizing = getDraftSizingSection("centerLeft");
+        const centerSizing = getDraftSizingSection("center");
+        const centerRightSizing = getDraftSizingSection("centerRight");
+        const rightSizing = getDraftSizingSection("right");
+        const middleSpacing = getDraftGlobalSpacing("middleSpacing");
+        const rightSectionSpacing = getDraftGlobalSpacing("rightSectionSpacing");
+
+        Config.options.bar.layoutSizing.middleSpacing = middleSpacing;
+        Config.options.bar.layoutSizing.rightSectionSpacing = rightSectionSpacing;
+        Config.options.bar.layoutSizing.left.mode = leftSizing.mode;
+        Config.options.bar.layoutSizing.left.fixedWidth = leftSizing.fixedWidth;
+        Config.options.bar.layoutSizing.left.align = leftSizing.align;
+        Config.options.bar.layoutSizing.centerLeft.mode = centerLeftSizing.mode;
+        Config.options.bar.layoutSizing.centerLeft.fixedWidth = centerLeftSizing.fixedWidth;
+        Config.options.bar.layoutSizing.centerLeft.align = centerLeftSizing.align;
+        Config.options.bar.layoutSizing.center.mode = centerSizing.mode;
+        Config.options.bar.layoutSizing.center.fixedWidth = centerSizing.fixedWidth;
+        Config.options.bar.layoutSizing.center.align = centerSizing.align;
+        Config.options.bar.layoutSizing.centerRight.mode = centerRightSizing.mode;
+        Config.options.bar.layoutSizing.centerRight.fixedWidth = centerRightSizing.fixedWidth;
+        Config.options.bar.layoutSizing.centerRight.align = centerRightSizing.align;
+        Config.options.bar.layoutSizing.right.mode = rightSizing.mode;
+        Config.options.bar.layoutSizing.right.fixedWidth = rightSizing.fixedWidth;
+        Config.options.bar.layoutSizing.right.align = rightSizing.align;
+
+        Config.setNestedValue("bar.layoutSizing.middleSpacing", middleSpacing);
+        Config.setNestedValue("bar.layoutSizing.rightSectionSpacing", rightSectionSpacing);
+        Config.setNestedValue("bar.layoutSizing.left.mode", leftSizing.mode);
+        Config.setNestedValue("bar.layoutSizing.left.fixedWidth", leftSizing.fixedWidth);
+        Config.setNestedValue("bar.layoutSizing.left.align", leftSizing.align);
+        Config.setNestedValue("bar.layoutSizing.centerLeft.mode", centerLeftSizing.mode);
+        Config.setNestedValue("bar.layoutSizing.centerLeft.fixedWidth", centerLeftSizing.fixedWidth);
+        Config.setNestedValue("bar.layoutSizing.centerLeft.align", centerLeftSizing.align);
+        Config.setNestedValue("bar.layoutSizing.center.mode", centerSizing.mode);
+        Config.setNestedValue("bar.layoutSizing.center.fixedWidth", centerSizing.fixedWidth);
+        Config.setNestedValue("bar.layoutSizing.center.align", centerSizing.align);
+        Config.setNestedValue("bar.layoutSizing.centerRight.mode", centerRightSizing.mode);
+        Config.setNestedValue("bar.layoutSizing.centerRight.fixedWidth", centerRightSizing.fixedWidth);
+        Config.setNestedValue("bar.layoutSizing.centerRight.align", centerRightSizing.align);
+        Config.setNestedValue("bar.layoutSizing.right.mode", rightSizing.mode);
+        Config.setNestedValue("bar.layoutSizing.right.fixedWidth", rightSizing.fixedWidth);
+        Config.setNestedValue("bar.layoutSizing.right.align", rightSizing.align);
+
+        const widgetKeys = ["leftSidebarButton", "activeWindow", "resources", "media", "workspaces", "clock", "utilButtons", "battery", "rightSidebarButton", "sysTray", "weather"];
+        for (let i = 0; i < widgetKeys.length; ++i) {
+            const key = widgetKeys[i];
+            const options = getDraftWidgetOptions(key);
+            Config.setNestedValue(`bar.layoutWidgetOptions.${key}.align`, options.align);
+            Config.setNestedValue(`bar.layoutWidgetOptions.${key}.fillWidth`, options.fillWidth);
+        }
+
         initializeDraftLayout();
     }
 
@@ -233,7 +548,35 @@ ContentPage {
             centerRight: getDraftSection("centerRight"),
             right: getDraftSection("right")
         };
-        return JSON.stringify(current) !== JSON.stringify(draft);
+        const currentSizing = currentLayoutSizingSnapshot();
+        const draftSizing = {
+            root: {
+                middleSpacing: getDraftGlobalSpacing("middleSpacing"),
+                rightSectionSpacing: getDraftGlobalSpacing("rightSectionSpacing")
+            },
+            left: getDraftSizingSection("left"),
+            centerLeft: getDraftSizingSection("centerLeft"),
+            center: getDraftSizingSection("center"),
+            centerRight: getDraftSizingSection("centerRight"),
+            right: getDraftSizingSection("right")
+        };
+        const currentWidgetOptions = currentWidgetOptionsSnapshot();
+        const draftWidgetOptions = {
+            leftSidebarButton: getDraftWidgetOptions("leftSidebarButton"),
+            activeWindow: getDraftWidgetOptions("activeWindow"),
+            resources: getDraftWidgetOptions("resources"),
+            media: getDraftWidgetOptions("media"),
+            workspaces: getDraftWidgetOptions("workspaces"),
+            clock: getDraftWidgetOptions("clock"),
+            utilButtons: getDraftWidgetOptions("utilButtons"),
+            battery: getDraftWidgetOptions("battery"),
+            rightSidebarButton: getDraftWidgetOptions("rightSidebarButton"),
+            sysTray: getDraftWidgetOptions("sysTray"),
+            weather: getDraftWidgetOptions("weather")
+        };
+        return JSON.stringify(current) !== JSON.stringify(draft)
+            || JSON.stringify(currentSizing) !== JSON.stringify(draftSizing)
+            || JSON.stringify(currentWidgetOptions) !== JSON.stringify(draftWidgetOptions);
     }
 
     function sectionModel(sectionKey) {
@@ -253,6 +596,12 @@ ContentPage {
     }
 
     Component.onCompleted: initializeDraftLayout()
+    onVisibleChanged: {
+        if (!visible) {
+            clearBarPreview();
+        }
+    }
+    Component.onDestruction: clearBarPreview()
 
     ContentSection {
         icon: "notifications"
@@ -464,88 +813,153 @@ ContentPage {
                                     required property string modelData
                                     readonly property string widgetKey: modelData
                                     readonly property string sectionKey: sectionId
+                                    property bool expanded: false
 
                                     width: sectionColumn.width
-                                    implicitHeight: 36
+                                    implicitHeight: expanded ? (headerRow.implicitHeight + expandedLayout.implicitHeight + 8) : (headerRow.implicitHeight + 8)
                                     radius: Appearance.rounding.small
                                     color: Appearance.colors.colLayer1
                                     border.width: 1
                                     border.color: Appearance.colors.colOutlineVariant
 
-                                    RowLayout {
+                                    ColumnLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 6
-                                        spacing: 8
+                                        anchors.topMargin: 4
+                                        anchors.bottomMargin: 4
+                                        spacing: 4
 
-                                        MaterialSymbol {
-                                            text: widgetIcon(widgetItem.widgetKey)
-                                            iconSize: Appearance.font.pixelSize.normal
-                                            color: Appearance.colors.colOnLayer1
-                                        }
-
-                                        StyledText {
+                                        RowLayout {
+                                            id: headerRow
                                             Layout.fillWidth: true
-                                            text: widgetName(widgetItem.widgetKey)
-                                            color: Appearance.colors.colOnLayer1
-                                            font.pixelSize: Appearance.font.pixelSize.normal
-                                            elide: Text.ElideRight
-                                        }
+                                            spacing: 8
 
-                                        MaterialSymbol {
-                                            text: "widgets"
-                                            iconSize: Appearance.font.pixelSize.small
-                                            color: Appearance.colors.colSubtext
-                                        }
-
-                                        RippleButton {
-                                            implicitWidth: 28
-                                            implicitHeight: 28
-                                            buttonRadius: Appearance.rounding.full
-                                            enabled: indexInSection(widgetItem.sectionKey, widgetItem.widgetKey) > 0
-                                            onClicked: moveWidgetByKey(widgetItem.sectionKey, widgetItem.widgetKey, -1)
-
-                                            contentItem: MaterialSymbol {
-                                                anchors.centerIn: parent
-                                                text: "arrow_upward"
+                                            MaterialSymbol {
+                                                text: widgetIcon(widgetItem.widgetKey)
                                                 iconSize: Appearance.font.pixelSize.normal
                                                 color: Appearance.colors.colOnLayer1
                                             }
-                                        }
 
-                                        RippleButton {
-                                            implicitWidth: 28
-                                            implicitHeight: 28
-                                            buttonRadius: Appearance.rounding.full
-                                            enabled: {
-                                                const idx = indexInSection(widgetItem.sectionKey, widgetItem.widgetKey);
-                                                const len = sectionModel(sectionId).length;
-                                                return idx >= 0 && idx < len - 1;
-                                            }
-                                            onClicked: moveWidgetByKey(widgetItem.sectionKey, widgetItem.widgetKey, 1)
-
-                                            contentItem: MaterialSymbol {
-                                                anchors.centerIn: parent
-                                                text: "arrow_downward"
-                                                iconSize: Appearance.font.pixelSize.normal
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                text: widgetName(widgetItem.widgetKey)
                                                 color: Appearance.colors.colOnLayer1
+                                                font.pixelSize: Appearance.font.pixelSize.normal
+                                                elide: Text.ElideRight
+                                            }
+
+                                            MaterialSymbol {
+                                                text: "widgets"
+                                                iconSize: Appearance.font.pixelSize.small
+                                                color: Appearance.colors.colSubtext
+                                            }
+
+                                            RippleButton {
+                                                implicitWidth: 28
+                                                implicitHeight: 28
+                                                buttonRadius: Appearance.rounding.full
+                                                onClicked: widgetItem.expanded = !widgetItem.expanded
+
+                                                contentItem: MaterialSymbol {
+                                                    anchors.centerIn: parent
+                                                    text: widgetItem.expanded ? "expand_less" : "expand_more"
+                                                    iconSize: Appearance.font.pixelSize.normal
+                                                    color: Appearance.colors.colOnLayer1
+                                                }
+                                            }
+
+                                            RippleButton {
+                                                implicitWidth: 28
+                                                implicitHeight: 28
+                                                buttonRadius: Appearance.rounding.full
+                                                enabled: indexInSection(widgetItem.sectionKey, widgetItem.widgetKey) > 0
+                                                onClicked: moveWidgetByKey(widgetItem.sectionKey, widgetItem.widgetKey, -1)
+
+                                                contentItem: MaterialSymbol {
+                                                    anchors.centerIn: parent
+                                                    text: "arrow_upward"
+                                                    iconSize: Appearance.font.pixelSize.normal
+                                                    color: Appearance.colors.colOnLayer1
+                                                }
+                                            }
+
+                                            RippleButton {
+                                                implicitWidth: 28
+                                                implicitHeight: 28
+                                                buttonRadius: Appearance.rounding.full
+                                                enabled: {
+                                                    const idx = indexInSection(widgetItem.sectionKey, widgetItem.widgetKey);
+                                                    const len = sectionModel(sectionId).length;
+                                                    return idx >= 0 && idx < len - 1;
+                                                }
+                                                onClicked: moveWidgetByKey(widgetItem.sectionKey, widgetItem.widgetKey, 1)
+
+                                                contentItem: MaterialSymbol {
+                                                    anchors.centerIn: parent
+                                                    text: "arrow_downward"
+                                                    iconSize: Appearance.font.pixelSize.normal
+                                                    color: Appearance.colors.colOnLayer1
+                                                }
+                                            }
+
+                                            RippleButton {
+                                                implicitWidth: 28
+                                                implicitHeight: 28
+                                                buttonRadius: Appearance.rounding.full
+                                                colBackground: ColorUtils.transparentize(Appearance.colors.colErrorContainer, 1)
+                                                colBackgroundHover: Appearance.colors.colErrorContainerHover
+                                                colRipple: Appearance.colors.colErrorContainerActive
+                                                onClicked: removeWidgetFromSection(widgetItem.sectionKey, widgetItem.widgetKey)
+
+                                                contentItem: MaterialSymbol {
+                                                    anchors.centerIn: parent
+                                                    text: "close"
+                                                    iconSize: Appearance.font.pixelSize.normal
+                                                    color: Appearance.m3colors.m3onErrorContainer
+                                                }
                                             }
                                         }
 
-                                        RippleButton {
-                                            implicitWidth: 28
-                                            implicitHeight: 28
-                                            buttonRadius: Appearance.rounding.full
-                                            colBackground: ColorUtils.transparentize(Appearance.colors.colErrorContainer, 1)
-                                            colBackgroundHover: Appearance.colors.colErrorContainerHover
-                                            colRipple: Appearance.colors.colErrorContainerActive
-                                            onClicked: removeWidgetFromSection(widgetItem.sectionKey, widgetItem.widgetKey)
+                                        ColumnLayout {
+                                            id: expandedLayout
+                                            Layout.fillWidth: true
+                                            visible: widgetItem.expanded
+                                            spacing: 4
 
-                                            contentItem: MaterialSymbol {
-                                                anchors.centerIn: parent
-                                                text: "close"
-                                                iconSize: Appearance.font.pixelSize.normal
-                                                color: Appearance.m3colors.m3onErrorContainer
+                                            ConfigRow {
+                                                Layout.fillWidth: true
+
+                                                ContentSubsection {
+                                                    title: Translation.tr("Widget align")
+                                                    Layout.fillWidth: true
+
+                                                    ConfigSelectionArray {
+                                                        currentValue: getDraftWidgetOptions(widgetItem.widgetKey).align
+                                                        onSelected: newValue => setDraftWidgetOptions(widgetItem.widgetKey, { align: newValue })
+                                                        options: [
+                                                            { displayName: Translation.tr("Auto"), icon: "auto_awesome", value: "auto" },
+                                                            { displayName: Translation.tr("Left"), icon: "format_align_left", value: "left" },
+                                                            { displayName: Translation.tr("Center"), icon: "format_align_center", value: "center" },
+                                                            { displayName: Translation.tr("Right"), icon: "format_align_right", value: "right" }
+                                                        ]
+                                                    }
+                                                }
+
+                                                ContentSubsection {
+                                                    title: Translation.tr("Fill width")
+                                                    Layout.fillWidth: true
+
+                                                    ConfigSelectionArray {
+                                                        currentValue: getDraftWidgetOptions(widgetItem.widgetKey).fillWidth
+                                                        onSelected: newValue => setDraftWidgetOptions(widgetItem.widgetKey, { fillWidth: newValue })
+                                                        options: [
+                                                            { displayName: Translation.tr("Auto"), icon: "auto_awesome", value: "auto" },
+                                                            { displayName: Translation.tr("On"), icon: "check", value: "on" },
+                                                            { displayName: Translation.tr("Off"), icon: "close", value: "off" }
+                                                        ]
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -596,6 +1010,57 @@ ContentPage {
                             }
                         }
                     }
+
+                    ContentSubsection {
+                        title: Translation.tr("Section layout")
+                        Layout.fillWidth: true
+
+                        ConfigRow {
+                            ContentSubsection {
+                                title: Translation.tr("Width mode")
+                                Layout.fillWidth: true
+
+                                ConfigSelectionArray {
+                                    currentValue: getDraftSizingSection(sectionId).mode
+                                    onSelected: newValue => setDraftSizingSection(sectionId, { mode: newValue })
+                                    options: [
+                                        { displayName: Translation.tr("Adaptive"), icon: "fit_screen", value: "adaptive" },
+                                        { displayName: Translation.tr("Fixed"), icon: "straighten", value: "fixed" }
+                                    ]
+                                }
+                            }
+
+                            ContentSubsection {
+                                title: Translation.tr("Alignment")
+                                Layout.fillWidth: true
+
+                                ConfigSelectionArray {
+                                    currentValue: getDraftSizingSection(sectionId).align
+                                    onSelected: newValue => setDraftSizingSection(sectionId, { align: newValue })
+                                    options: [
+                                        { displayName: Translation.tr("Left"), icon: "format_align_left", value: "left" },
+                                        { displayName: Translation.tr("Center"), icon: "format_align_center", value: "center" },
+                                        { displayName: Translation.tr("Right"), icon: "format_align_right", value: "right" }
+                                    ]
+                                }
+                            }
+                        }
+
+                        ConfigSpinBox {
+                            icon: "width"
+                            text: Translation.tr("Fixed width")
+                            enabled: getDraftSizingSection(sectionId).mode === "fixed"
+                            value: getDraftSizingSection(sectionId).fixedWidth
+                            from: 60
+                            to: 1200
+                            stepSize: 10
+                            onValueChanged: {
+                                if (value === getDraftSizingSection(sectionId).fixedWidth)
+                                    return;
+                                setDraftSizingSection(sectionId, { fixedWidth: value });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -621,6 +1086,39 @@ ContentPage {
                 mainText: Translation.tr("Apply")
                 enabled: hasDraftChanges()
                 onClicked: applyDraftLayout()
+            }
+        }
+
+        ContentSubsection {
+            title: Translation.tr("Global spacing")
+
+            ConfigRow {
+                ConfigSpinBox {
+                    icon: "space_bar"
+                    text: Translation.tr("Middle spacing")
+                    value: getDraftGlobalSpacing("middleSpacing")
+                    from: 0
+                    to: 24
+                    stepSize: 1
+                    onValueChanged: {
+                        if (value === getDraftGlobalSpacing("middleSpacing"))
+                            return;
+                        setDraftGlobalSpacing("middleSpacing", value);
+                    }
+                }
+                ConfigSpinBox {
+                    icon: "space_dashboard"
+                    text: Translation.tr("Right section spacing")
+                    value: getDraftGlobalSpacing("rightSectionSpacing")
+                    from: 0
+                    to: 24
+                    stepSize: 1
+                    onValueChanged: {
+                        if (value === getDraftGlobalSpacing("rightSectionSpacing"))
+                            return;
+                        setDraftGlobalSpacing("rightSectionSpacing", value);
+                    }
+                }
             }
         }
     }

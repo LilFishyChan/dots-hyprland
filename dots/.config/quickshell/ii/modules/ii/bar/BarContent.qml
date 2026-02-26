@@ -34,8 +34,65 @@ Item { // Bar content region
             centerLeft: ["resources", "media"],
             center: ["workspaces"],
             centerRight: ["clock", "utilButtons", "battery"],
-            right: ["rightSidebarButton", "sysTray", "weather"]
+            right: ["weather", "sysTray", "rightSidebarButton"]
         })
+    readonly property var defaultWidgetOptions: ({
+            leftSidebarButton: { align: "auto", fillWidth: "auto" },
+            activeWindow: { align: "auto", fillWidth: "auto" },
+            resources: { align: "auto", fillWidth: "auto" },
+            media: { align: "auto", fillWidth: "auto" },
+            workspaces: { align: "auto", fillWidth: "auto" },
+            clock: { align: "auto", fillWidth: "auto" },
+            utilButtons: { align: "auto", fillWidth: "auto" },
+            battery: { align: "auto", fillWidth: "auto" },
+            rightSidebarButton: { align: "auto", fillWidth: "auto" },
+            sysTray: { align: "auto", fillWidth: "auto" },
+            weather: { align: "auto", fillWidth: "auto" }
+        })
+
+    function previewLayoutSection(sectionName) {
+        return listToArray(Config?.barLayoutPreview?.[sectionName]);
+    }
+
+    function configuredLayoutSection(sectionName) {
+        const configured = Config?.options?.bar?.layout?.[sectionName];
+        return listToArray(configured);
+    }
+
+    function effectiveLayoutSection(sectionName) {
+        if (Config?.barLayoutPreviewActive) {
+            const previewSection = previewLayoutSection(sectionName);
+            return previewSection.length > 0 || Config?.barLayoutPreview?.[sectionName] ? previewSection : listToArray(defaultLayout[sectionName] ?? []);
+        }
+        const configuredSection = configuredLayoutSection(sectionName);
+        return configuredSection.length > 0 || Config?.options?.bar?.layout?.[sectionName] ? configuredSection : listToArray(defaultLayout[sectionName] ?? []);
+    }
+
+    function effectiveSizingValue(path, fallbackValue) {
+        const [section, key] = path;
+        if (Config?.barLayoutPreviewActive) {
+            const previewValue = Config?.barLayoutSizingPreview?.[section]?.[key];
+            if (previewValue !== undefined && previewValue !== null)
+                return previewValue;
+        }
+        const configuredValue = Config?.options?.bar?.layoutSizing?.[section]?.[key];
+        if (configuredValue !== undefined && configuredValue !== null)
+            return configuredValue;
+        return fallbackValue;
+    }
+
+    function effectiveWidgetOptionValue(widgetKey, optionKey, fallbackValue) {
+        if (Config?.barLayoutPreviewActive) {
+            const previewValue = Config?.barWidgetOptionsPreview?.[widgetKey]?.[optionKey];
+            if (previewValue !== undefined && previewValue !== null)
+                return previewValue;
+        }
+        const configuredValue = Config?.options?.bar?.layoutWidgetOptions?.[widgetKey]?.[optionKey];
+        if (configuredValue !== undefined && configuredValue !== null)
+            return configuredValue;
+        const defaultValue = defaultWidgetOptions?.[widgetKey]?.[optionKey];
+        return (defaultValue !== undefined && defaultValue !== null) ? defaultValue : fallbackValue;
+    }
 
     function listToArray(value) {
         const result = [];
@@ -52,8 +109,7 @@ Item { // Bar content region
     }
 
     function sectionKeys(sectionName) {
-        const configured = Config?.options?.bar?.layout?.[sectionName];
-        const source = (configured !== null && configured !== undefined) ? listToArray(configured) : listToArray(defaultLayout[sectionName] ?? []);
+        const source = effectiveLayoutSection(sectionName);
         const seen = new Set();
         return source.filter(key => {
             if (!knownWidgetKeys.includes(key) || seen.has(key) || !isWidgetEnabled(key)) {
@@ -68,11 +124,29 @@ Item { // Bar content region
         return sectionKeys(sectionName).includes(key);
     }
 
-    function loaderFillWidth(key) {
+    function sectionHasFillWidth(sectionName) {
+        const keys = sectionKeys(sectionName);
+        for (let i = 0; i < keys.length; ++i) {
+            if (loaderFillWidth(keys[i]))
+                return true;
+        }
+        return false;
+    }
+
+    function loaderDefaultFillWidth(key) {
         return key === "activeWindow"
             || key === "media"
             || key === "clock"
             || (key === "resources" && root.useShortenedForm === 2);
+    }
+
+    function loaderFillWidth(key) {
+        const mode = effectiveWidgetOptionValue(key, "fillWidth", "auto");
+        if (mode === "on")
+            return true;
+        if (mode === "off")
+            return false;
+        return loaderDefaultFillWidth(key);
     }
 
     function loaderFillHeight(key) {
@@ -80,8 +154,13 @@ Item { // Bar content region
     }
 
     function loaderAlignment(key) {
-        if (key === "leftSidebarButton")
-            return Qt.AlignVCenter;
+        const mode = effectiveWidgetOptionValue(key, "align", "auto");
+        if (mode === "left")
+            return Qt.AlignLeft | Qt.AlignVCenter;
+        if (mode === "center")
+            return Qt.AlignHCenter | Qt.AlignVCenter;
+        if (mode === "right")
+            return Qt.AlignRight | Qt.AlignVCenter;
         if (key === "rightSidebarButton")
             return Qt.AlignRight | Qt.AlignVCenter;
         return Qt.AlignVCenter;
@@ -103,6 +182,29 @@ Item { // Bar content region
         if (key === "rightSidebarButton")
             return Appearance.rounding.screenRounding;
         return 0;
+    }
+
+    function sectionWidth(sectionName, adaptiveWidth) {
+        const mode = effectiveSizingValue([sectionName, "mode"], "adaptive");
+        if (mode === "fixed") {
+            return Math.max(60, effectiveSizingValue([sectionName, "fixedWidth"], adaptiveWidth));
+        }
+        return adaptiveWidth;
+    }
+
+    function sectionAlignment(sectionName, fallbackAlignment = "left") {
+        const align = effectiveSizingValue([sectionName, "align"], fallbackAlignment);
+        if (align === "left" || align === "center" || align === "right") {
+            return align;
+        }
+        return fallbackAlignment;
+    }
+
+    function centerNaturalWidth() {
+        if (sectionContains("center", "workspaces")) {
+            return workspacesWidget.implicitWidth + (middleCenterGroup.dynamicPadding * 2);
+        }
+        return Math.max(120, workspacesWidget.implicitWidth);
     }
 
     function isWidgetEnabled(key) {
@@ -328,8 +430,17 @@ Item { // Bar content region
         }
         color: Config.options.bar.showBackground ? Appearance.colors.colLayer0 : "transparent"
         radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
-        border.width: Config.options.bar.cornerStyle === 1 ? 1 : 0
+        border.width: Config.barLayoutPreviewActive ? 2 : (Config.options.bar.cornerStyle === 1 ? 1 : 0)
         border.color: Appearance.colors.colLayer0Border
+    }
+
+    Rectangle {
+        anchors.fill: barBackground
+        visible: Config.barLayoutPreviewActive
+        color: "transparent"
+        radius: barBackground.radius
+        border.width: 1
+        border.color: Appearance.colors.colPrimary
     }
 
     FocusedScrollMouseArea { // Left side | scroll to change brightness
@@ -364,7 +475,16 @@ Item { // Bar content region
 
         RowLayout {
             id: leftSectionRowLayout
-            anchors.fill: parent
+            anchors.verticalCenter: parent.verticalCenter
+            width: root.sectionWidth("left", implicitWidth)
+            x: {
+                const align = sectionAlignment("left", "left");
+                if (align === "left")
+                    return 0;
+                if (align === "center")
+                    return (parent.width - width) / 2;
+                return parent.width - width;
+            }
             spacing: 0
 
             Repeater {
@@ -385,13 +505,15 @@ Item { // Bar content region
             bottom: parent.bottom
             horizontalCenter: parent.horizontalCenter
         }
-        spacing: 4
+        spacing: effectiveSizingValue(["root", "middleSpacing"], Config?.options?.bar?.layoutSizing?.middleSpacing ?? 4)
 
         BarGroup {
             id: leftCenterGroup
             anchors.verticalCenter: parent.verticalCenter
             visible: root.sectionKeys("centerLeft").length > 0
-            implicitWidth: root.centerSideModuleWidth
+            implicitWidth: root.sectionWidth("centerLeft", root.centerSideModuleWidth)
+            horizontalAlign: root.sectionAlignment("centerLeft", "center")
+            forceFullWidth: root.sectionHasFillWidth("centerLeft")
 
             Repeater {
                 model: root.sectionKeys("centerLeft")
@@ -411,6 +533,9 @@ Item { // Bar content region
             id: middleCenterGroup
             anchors.verticalCenter: parent.verticalCenter
             visible: root.sectionKeys("center").length > 0
+            implicitWidth: root.sectionWidth("center", root.centerNaturalWidth())
+            horizontalAlign: root.sectionAlignment("center", "center")
+            forceFullWidth: root.sectionHasFillWidth("center")
 
             readonly property int dynamicPadding: sectionContains("center", "workspaces") ? workspacesWidget.widgetPadding : 5
             padding: dynamicPadding
@@ -438,7 +563,7 @@ Item { // Bar content region
             id: rightCenterGroup
             anchors.verticalCenter: parent.verticalCenter
             visible: rightCenterGroupContent.visible
-            implicitWidth: root.centerSideModuleWidth
+            implicitWidth: root.sectionWidth("centerRight", root.centerSideModuleWidth)
             implicitHeight: rightCenterGroupContent.implicitHeight
 
             onPressed: {
@@ -449,6 +574,8 @@ Item { // Bar content region
                 id: rightCenterGroupContent
                 anchors.fill: parent
                 visible: root.sectionKeys("centerRight").length > 0
+                horizontalAlign: root.sectionAlignment("centerRight", "center")
+                forceFullWidth: root.sectionHasFillWidth("centerRight")
 
                 Repeater {
                     model: root.sectionKeys("centerRight")
@@ -495,9 +622,18 @@ Item { // Bar content region
 
         RowLayout {
             id: rightSectionRowLayout
-            anchors.fill: parent
-            spacing: 5
-            layoutDirection: Qt.RightToLeft
+            anchors.verticalCenter: parent.verticalCenter
+            width: root.sectionWidth("right", implicitWidth)
+            x: {
+                const align = sectionAlignment("right", "right");
+                if (align === "left")
+                    return 0;
+                if (align === "center")
+                    return (parent.width - width) / 2;
+                return parent.width - width;
+            }
+            spacing: effectiveSizingValue(["root", "rightSectionSpacing"], Config?.options?.bar?.layoutSizing?.rightSectionSpacing ?? 5)
+            layoutDirection: Qt.LeftToRight
 
             Repeater {
                 model: root.sectionKeys("right")
@@ -506,11 +642,6 @@ Item { // Bar content region
                     sectionName: "right"
                     key: modelData
                 }
-            }
-
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
             }
         }
     }
